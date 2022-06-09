@@ -1,0 +1,156 @@
+<html>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+    }
+
+    html {
+        width: 100%;
+        height: 100%;
+        overflow-y: hidden;
+    }
+
+    body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    iframe {
+        overflow: hidden;
+    }
+</style>
+
+<head>
+    <meta charset="UTF-8">
+    <title>다음 주소 검색</title>
+</head>
+
+<body>
+    <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+    <script>
+        // 넘어온 값이 빈값인지 체크합니다. 
+        // !value 하면 생기는 논리적 오류를 제거하기 위해 
+        // 명시적으로 value == 사용 
+        // [], {} 도 빈값으로 처리 
+        var isEmpty = function (value) {
+            if (value == "" || value == null || value == undefined || (value != null && typeof value == "object" && !Object.keys(value).length)) {
+                return true
+            }
+            else {
+                return false
+            }
+        };
+
+        var urlParams;
+        (window.onpopstate = function () {
+            var match,
+                pl = /\+/g,  // Regex for replacing addition symbol with a space
+                search = /([^&=]+)=?([^&]*)/g,
+                decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); },
+                query = window.location.search.substring(1);
+
+            urlParams = {};
+            while (match = search.exec(query))
+                urlParams[decode(match[1])] = decode(match[2]);
+        })();
+
+        //본 예제에서는 도로명 주소 표기 방식에 대한 법령에 따라, 내려오는 데이터를 조합하여 올바른 주소를 구성하는 방법을 설명합니다.
+        function openDaumWebAddress() {
+            new daum.Postcode({
+                width: '100%',
+                height: '100%',
+                hideMapBtn: true,
+                oncomplete: function (data) {
+                    // 팝업에서 검색결과 항목을 클릭했을때 실행할 코드를 작성하는 부분.
+
+                    // 도로명 주소의 노출 규칙에 따라 주소를 표시한다.
+                    // 내려오는 변수가 값이 없는 경우엔 공백('')값을 가지므로, 이를 참고하여 분기 한다.
+                    var roadAddr = data.roadAddress; // 도로명 주소 변수
+                    var extraRoadAddr = ''; // 참고 항목 변수
+
+                    // 법정동명이 있을 경우 추가한다. (법정리는 제외)
+                    // 법정동의 경우 마지막 문자가 "동/로/가"로 끝난다.
+                    // if(data.bname !== '' && /[동|로|가]$/g.test(data.bname)){
+                    //    extraRoadAddr += data.bname;
+                    // }
+                    // 건물명이 있을 때
+                    if (data.buildingName !== '') {
+                        extraRoadAddr += (extraRoadAddr !== '' ? ', ' + data.buildingName : data.buildingName);
+                    }
+                    // 표시할 참고항목이 있을 경우, 괄호까지 추가한 최종 문자열을 만든다.
+                    // if(extraRoadAddr !== ''){
+                    //     extraRoadAddr = ' (' + extraRoadAddr + ')';
+                    // }
+
+                    // 우편번호
+                    // document.getElementById('sample4_postcode').value = data.zonecode;
+                    // 도로명주소
+                    // document.getElementById("sample4_roadAddress").value = roadAddr;
+                    // 상세주소
+                    // document.getElementById("sample4_detailAddress").value = extraRoadAddr;
+
+                  //  console.log(data.zonecode);
+                 //   console.log(roadAddr);
+                  //  console.log(extraRoadAddr);
+
+                    // 우편번호, 도로명주소, 상세주소 콜백
+                    // null check
+                    var os = urlParams["os"];
+                    if (!isEmpty(os)) {
+                        // 도로명 주소 선택 여부
+                        var isRoadSelected = data.userSelectedType == "R"
+
+                        if (os == "A") {
+                            // aos bridge 함수 실행
+                            window.AddressApp.setAddress(data.jibunAddress, roadAddr, extraRoadAddr, data.zonecode, isRoadSelected);
+                        } else if (os == "I") {
+                            // ios bridge 함수 실행
+                            var message = {
+                                'addr': data.jibunAddress,
+                                'roadAddr': roadAddr,
+                                'detailAddr': extraRoadAddr,
+                                'zipCode': data.zonecode,
+                                'isRoadSelected': isRoadSelected,
+                            };
+                            webkit.messageHandlers.callbackHandler.postMessage(message);
+                        }
+                    }
+
+                    // 지번주소
+                    // document.getElementById("sample4_jibunAddress").value = data.jibunAddress;
+
+                    // 참고항목 문자열이 있을 경우 해당 필드에 넣는다.
+                    // if(roadAddr !== ''){
+                    //     document.getElementById("sample4_extraAddress").value = extraRoadAddr;
+                    // } else {
+                    //     document.getElementById("sample4_extraAddress").value = '';
+                    // }
+
+                    // var guideTextBox = document.getElementById("guide");
+                    // 사용자가 '선택 안함'을 클릭한 경우, 예상 주소라는 표시를 해준다.
+                    // if(data.autoRoadAddress) {
+                    //    var expRoadAddr = data.autoRoadAddress + extraRoadAddr;
+                    //    guideTextBox.innerHTML = '(예상 도로명 주소 : ' + expRoadAddr + ')';
+                    //    guideTextBox.style.display = 'block';
+
+                    // } else if(data.autoJibunAddress) {
+                    //     var expJibunAddr = data.autoJibunAddress;
+                    //     guideTextBox.innerHTML = '(예상 지번 주소 : ' + expJibunAddr + ')';
+                    //     guideTextBox.style.display = 'block';
+                    // } else {
+                    //     guideTextBox.innerHTML = '';
+                    //     guideTextBox.style.display = 'none';
+                    // }
+                }
+            }).embed(document.body);
+        }
+        
+        openDaumWebAddress();
+    </script>
+
+</body>
+
+</html>
